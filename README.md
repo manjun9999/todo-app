@@ -12,7 +12,9 @@ A simple, self-contained todo list that runs entirely in the browser — no buil
 - 🔀 **Drag to reorder** — grab the ⠿ handle and drop a task where you want it
 - ↕️ **Sort** — switch between **My order** (manual drag order) and **Due date** (earliest first, undated tasks last)
 - 🔍 **Search** — filter tasks by text as you type (case-insensitive), combined with the active tab filter
-- 🗂️ **Filter tabs** — view **All**, **Active**, or **Done**, each with a live count badge
+- 🏷️ **Tags** — type `#tags` inline in a task (e.g. "Buy milk #shopping"); they become clickable chips, and clicking one filters to that tag. Search matches tag names too
+- ⏱️ **Time tracking** — start/stop a timer on any task (one runs at a time), with a **Timing** tab that lists timed tasks by most time first and shows the grand total
+- 🗂️ **Filter tabs** — view **All**, **Active**, **Done**, or **Timing**, each with a live count badge
 - ⌨️ **Keyboard shortcuts** — press <kbd>?</kbd> (or the ⌨ button) for the full list; quickly add, search, filter, and toggle themes without the mouse
 - 🌙 **Dark mode** — toggle light/dark, or follow your operating system's preference automatically
 - 💾 **Persistent** — tasks and theme choice are stored in the browser's `localStorage`
@@ -39,7 +41,7 @@ Press <kbd>?</kbd> in the app to see these at any time.
 |-----|--------|
 | <kbd>n</kbd> | Focus the new-task input |
 | <kbd>/</kbd> | Focus search |
-| <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> | Filter All / Active / Done |
+| <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> | Filter All / Active / Done / Timing |
 | <kbd>d</kbd> | Toggle dark mode |
 | <kbd>?</kbd> | Show / hide the shortcuts help |
 | <kbd>Esc</kbd> | Close help · clear search |
@@ -58,8 +60,10 @@ todo-app/
 
 ## How it works
 
-- **State** lives in a `tasks` array (`{ id, text, done, due }`, where `due` is a `YYYY-MM-DD` string or `null`), persisted to `localStorage` under the `todo.tasks` key.
+- **State** lives in a `tasks` array (`{ id, text, done, due, tags, timeSpent, startedAt }`), persisted to `localStorage` under the `todo.tasks` key.
 - **Due dates** use local calendar days and are compared against today to flag overdue, due-today, and upcoming tasks.
+- **Tags** are parsed from `#hashtags` in the task text, stored deduped and lowercased, and re-inserted as `#tags` when editing so they round-trip.
+- **Time tracking** stores banked milliseconds in `timeSpent` plus a `startedAt` timestamp while running; a single one-second interval updates the live display and stops itself when no timer is active.
 - **Rendering** is handled by a single `render()` function that redraws the list from state on every change.
 - **Theme** preference is stored under `todo.theme`; when unset, the app respects the OS `prefers-color-scheme` setting.
 - **Reordering** rearranges the `tasks` array via the native HTML5 drag-and-drop API and re-saves; drag-to-reorder is available only in "My order" sort mode.

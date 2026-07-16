@@ -14,9 +14,12 @@ const count = document.getElementById("count");
 const clearDone = document.getElementById("clear-done");
 const themeToggle = document.getElementById("theme-toggle");
 const filters = document.getElementById("filters");
+const sortSelect = document.getElementById("sort-select");
 
 const THEME_KEY = "todo.theme";
+const SORT_KEY = "todo.sort";
 let currentFilter = "all";
+let sortMode = localStorage.getItem(SORT_KEY) || "manual";
 let draggedId = null;
 
 // Moves the dragged task to the position of the task it was dropped on.
@@ -204,6 +207,17 @@ function render() {
     return true;
   });
 
+  // Sort by due date when selected: dated tasks first (earliest first),
+  // undated tasks last, keeping their manual order among themselves.
+  if (sortMode === "due") {
+    visible.sort((a, b) => {
+      if (a.due && b.due) return a.due < b.due ? -1 : a.due > b.due ? 1 : 0;
+      if (a.due) return -1;
+      if (b.due) return 1;
+      return 0;
+    });
+  }
+
   if (visible.length === 0) {
     const empty = document.createElement("li");
     empty.className = "empty";
@@ -221,7 +235,8 @@ function render() {
   visible.forEach((task) => {
     const li = document.createElement("li");
     if (task.done) li.classList.add("done");
-    li.draggable = true;
+    const canDrag = sortMode === "manual";
+    li.draggable = canDrag;
 
     li.addEventListener("dragstart", (e) => {
       draggedId = task.id;
@@ -253,7 +268,13 @@ function render() {
     const grip = document.createElement("span");
     grip.className = "grip";
     grip.textContent = "⠿";
-    grip.title = "Drag to reorder";
+    if (canDrag) {
+      grip.title = "Drag to reorder";
+    } else {
+      grip.title = 'Switch Sort to "My order" to drag';
+      grip.style.opacity = "0.35";
+      grip.style.cursor = "default";
+    }
 
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
@@ -305,6 +326,13 @@ filters.addEventListener("click", (e) => {
   filters.querySelectorAll(".filter-btn").forEach((b) =>
     b.classList.toggle("active", b === btn)
   );
+  render();
+});
+
+sortSelect.value = sortMode;
+sortSelect.addEventListener("change", () => {
+  sortMode = sortSelect.value;
+  localStorage.setItem(SORT_KEY, sortMode);
   render();
 });
 

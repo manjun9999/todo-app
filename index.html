@@ -23,6 +23,13 @@
         <button class="filter-btn" data-filter="active">Active <span class="badge" data-count="active">0</span></button>
         <button class="filter-btn" data-filter="done">Done <span class="badge" data-count="done">0</span></button>
       </div>
+      <div class="toolbar">
+        <label class="sort-label" for="sort-select">Sort</label>
+        <select id="sort-select">
+          <option value="manual">My order</option>
+          <option value="due">Due date</option>
+        </select>
+      </div>
       <ul id="task-list"></ul>
       <div class="footer">
         <span id="count">0 items left</span>

@@ -16,6 +16,9 @@ const themeToggle = document.getElementById("theme-toggle");
 const filters = document.getElementById("filters");
 const sortSelect = document.getElementById("sort-select");
 const search = document.getElementById("search");
+const helpBtn = document.getElementById("help-btn");
+const helpOverlay = document.getElementById("help-overlay");
+const helpClose = document.getElementById("help-close");
 
 const THEME_KEY = "todo.theme";
 const SORT_KEY = "todo.sort";
@@ -325,14 +328,18 @@ function render() {
   filters.querySelector('[data-count="done"]').textContent = doneCount;
 }
 
+function selectFilter(name) {
+  currentFilter = name;
+  filters.querySelectorAll(".filter-btn").forEach((b) =>
+    b.classList.toggle("active", b.dataset.filter === name)
+  );
+  render();
+}
+
 filters.addEventListener("click", (e) => {
   const btn = e.target.closest(".filter-btn");
   if (!btn) return;
-  currentFilter = btn.dataset.filter;
-  filters.querySelectorAll(".filter-btn").forEach((b) =>
-    b.classList.toggle("active", b === btn)
-  );
-  render();
+  selectFilter(btn.dataset.filter);
 });
 
 sortSelect.value = sortMode;
@@ -364,6 +371,84 @@ clearDone.addEventListener("click", () => {
   tasks = tasks.filter((t) => !t.done);
   save();
   render();
+});
+
+// --- Keyboard shortcuts ---
+
+function openHelp() {
+  helpOverlay.hidden = false;
+}
+function closeHelp() {
+  helpOverlay.hidden = true;
+}
+function toggleHelp() {
+  helpOverlay.hidden = !helpOverlay.hidden;
+}
+
+// True when focus is in a field, so typing there isn't hijacked by shortcuts.
+function isTyping() {
+  const el = document.activeElement;
+  if (!el) return false;
+  const tag = el.tagName;
+  return (
+    tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable
+  );
+}
+
+helpBtn.addEventListener("click", toggleHelp);
+helpClose.addEventListener("click", closeHelp);
+helpOverlay.addEventListener("click", (e) => {
+  if (e.target === helpOverlay) closeHelp();
+});
+
+document.addEventListener("keydown", (e) => {
+  // Escape works everywhere: close help, or clear/blur the search box.
+  if (e.key === "Escape") {
+    if (!helpOverlay.hidden) {
+      closeHelp();
+    } else if (document.activeElement === search) {
+      if (search.value) {
+        search.value = "";
+        searchQuery = "";
+        render();
+      }
+      search.blur();
+    }
+    return;
+  }
+
+  // "?" toggles the help panel (Shift + / on most layouts).
+  if (e.key === "?" && !isTyping()) {
+    e.preventDefault();
+    toggleHelp();
+    return;
+  }
+
+  // Ignore the rest while help is open, while typing, or with modifier keys.
+  if (!helpOverlay.hidden || isTyping() || e.ctrlKey || e.metaKey || e.altKey) return;
+
+  switch (e.key) {
+    case "n":
+      e.preventDefault();
+      input.focus();
+      break;
+    case "/":
+      e.preventDefault();
+      search.focus();
+      break;
+    case "1":
+      selectFilter("all");
+      break;
+    case "2":
+      selectFilter("active");
+      break;
+    case "3":
+      selectFilter("done");
+      break;
+    case "d":
+      toggleTheme();
+      break;
+  }
 });
 
 render();

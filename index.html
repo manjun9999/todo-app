@@ -10,7 +10,8 @@
   <div class="app">
     <div class="header">
       <h1>📝 My Todo List</h1>
-      <button class="theme-toggle" id="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+      <button class="icon-btn" id="help-btn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">⌨</button>
+      <button class="icon-btn" id="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
     </div>
     <div class="card">
       <div class="input-row">
@@ -36,6 +37,21 @@
         <span id="count">0 items left</span>
         <button class="clear-btn" id="clear-done">Clear completed</button>
       </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="help-overlay" hidden>
+    <div class="help-card">
+      <h2>Keyboard shortcuts</h2>
+      <ul class="help-list">
+        <li><kbd>n</kbd><span>New task</span></li>
+        <li><kbd>/</kbd><span>Search</span></li>
+        <li><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd><span>Filter: All / Active / Done</span></li>
+        <li><kbd>d</kbd><span>Toggle dark mode</span></li>
+        <li><kbd>?</kbd><span>Show / hide this help</span></li>
+        <li><kbd>Esc</kbd><span>Close help · clear search</span></li>
+      </ul>
+      <button class="add-btn" id="help-close">Close</button>
     </div>
   </div>
 

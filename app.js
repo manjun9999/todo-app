@@ -19,11 +19,28 @@ const search = document.getElementById("search");
 const helpBtn = document.getElementById("help-btn");
 const helpOverlay = document.getElementById("help-overlay");
 const helpClose = document.getElementById("help-close");
+const tagFilter = document.getElementById("tag-filter");
 
 const THEME_KEY = "todo.theme";
 const SORT_KEY = "todo.sort";
 let currentFilter = "all";
 let searchQuery = "";
+let activeTag = null;
+
+// Extracts #tags from raw input, returning the cleaned text and a deduped,
+// lowercased tag list. Example: "Buy milk #home #shop" -> {text:"Buy milk", tags:["home","shop"]}.
+function parseTags(raw) {
+  const tags = [];
+  const text = raw
+    .replace(/#([a-zA-Z0-9_-]+)/g, (_, t) => {
+      const tag = t.toLowerCase();
+      if (!tags.includes(tag)) tags.push(tag);
+      return "";
+    })
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  return { text, tags };
+}
 let sortMode = localStorage.getItem(SORT_KEY) || "manual";
 let draggedId = null;
 
@@ -101,10 +118,11 @@ function describeDue(due) {
   return { label, cls: "set", title: `Due ${due}` };
 }
 
-function addTask(text, due) {
+function addTask(rawText, due) {
+  const { text, tags } = parseTags(rawText);
   const trimmed = text.trim();
   if (!trimmed) return;
-  tasks.push({ id: Date.now(), text: trimmed, done: false, due: due || null });
+  tasks.push({ id: Date.now(), text: trimmed, done: false, due: due || null, tags });
   save();
   render();
 }
@@ -130,12 +148,14 @@ function deleteTask(id) {
   render();
 }
 
-function editTask(id, newText) {
-  const trimmed = newText.trim();
+function editTask(id, rawText) {
+  const { text, tags } = parseTags(rawText);
+  const trimmed = text.trim();
   const task = tasks.find((t) => t.id === id);
   if (!task) return;
   if (trimmed) {
     task.text = trimmed;
+    task.tags = tags;
     save();
   }
   render();
@@ -147,7 +167,8 @@ function startEdit(li, span, task) {
   const editInput = document.createElement("input");
   editInput.type = "text";
   editInput.className = "edit-input";
-  editInput.value = task.text;
+  const tagSuffix = (task.tags || []).map((t) => ` #${t}`).join("");
+  editInput.value = task.text + tagSuffix;
 
   let finished = false;
   const commit = () => {
@@ -208,11 +229,36 @@ function render() {
 
   const query = searchQuery.trim().toLowerCase();
   const visible = tasks.filter((task) => {
-    if (query && !task.text.toLowerCase().includes(query)) return false;
+    const tags = task.tags || [];
+    if (activeTag && !tags.includes(activeTag)) return false;
+    if (query) {
+      const inText = task.text.toLowerCase().includes(query);
+      const inTags = tags.some((t) => t.includes(query.replace(/^#/, "")));
+      if (!inText && !inTags) return false;
+    }
     if (currentFilter === "active") return !task.done;
     if (currentFilter === "done") return task.done;
     return true;
   });
+
+  // Show/clear the active-tag filter indicator above the list.
+  tagFilter.innerHTML = "";
+  if (activeTag) {
+    tagFilter.hidden = false;
+    const label = document.createElement("span");
+    label.textContent = "Filtered by tag:";
+    const chip = document.createElement("button");
+    chip.className = "tag active";
+    chip.textContent = `#${activeTag} ✕`;
+    chip.title = "Clear tag filter";
+    chip.addEventListener("click", () => {
+      activeTag = null;
+      render();
+    });
+    tagFilter.append(label, chip);
+  } else {
+    tagFilter.hidden = true;
+  }
 
   // Sort by due date when selected: dated tasks first (earliest first),
   // undated tasks last, keeping their manual order among themselves.
@@ -233,6 +279,8 @@ function render() {
         ? "No tasks yet — add one above!"
         : query
         ? `No tasks match “${searchQuery.trim()}”.`
+        : activeTag
+        ? `No tasks tagged #${activeTag}.`
         : currentFilter === "active"
         ? "No active tasks. 🎉"
         : currentFilter === "done"
@@ -315,7 +363,21 @@ function render() {
     del.title = "Delete";
     del.addEventListener("click", () => deleteTask(task.id));
 
-    li.append(grip, checkbox, span, due, edit, del);
+    li.append(grip, checkbox, span);
+
+    (task.tags || []).forEach((tag) => {
+      const chip = document.createElement("button");
+      chip.className = "tag" + (tag === activeTag ? " active" : "");
+      chip.textContent = `#${tag}`;
+      chip.title = `Filter by #${tag}`;
+      chip.addEventListener("click", () => {
+        activeTag = activeTag === tag ? null : tag;
+        render();
+      });
+      li.append(chip);
+    });
+
+    li.append(due, edit, del);
     list.appendChild(li);
   });
 

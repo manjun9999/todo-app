@@ -224,6 +224,31 @@ li.done .task-text {
   text-decoration: line-through;
   color: var(--muted);
 }
+.tag {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  padding: 1px 8px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.tag:hover { border-color: var(--accent); }
+.tag.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+li.done .tag { opacity: 0.5; }
+.tag-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
 .due {
   flex-shrink: 0;
   font-size: 0.75rem;

@@ -7,7 +7,7 @@ A simple, self-contained todo list that runs entirely in the browser — no buil
 ## Features
 
 - ✅ **Add / complete / delete** tasks
-- 📅 **Due dates** — optionally attach a due date when adding, then click a task's date pill to change or clear it. Pills are color-coded: overdue (red), due today (highlighted), upcoming (muted)
+- 📅 **Due dates & times** — optionally attach a due date, and an optional time of day, when adding; click a task's pill to change or clear it. Pills are color-coded: overdue (red), due today (highlighted), upcoming (muted). With a time set, overdue is precise to the minute
 - ✏️ **Edit in place** — double-click a task or click the pencil (Enter to save, Escape to cancel)
 - 🔀 **Drag to reorder** — grab the ⠿ handle and drop a task where you want it
 - ↕️ **Sort** — switch between **My order** (manual drag order) and **Due date** (earliest first, undated tasks last)
@@ -60,8 +60,8 @@ todo-app/
 
 ## How it works
 
-- **State** lives in a `tasks` array (`{ id, text, done, due, tags, timeSpent, startedAt }`), persisted to `localStorage` under the `todo.tasks` key.
-- **Due dates** use local calendar days and are compared against today to flag overdue, due-today, and upcoming tasks.
+- **State** lives in a `tasks` array (`{ id, text, done, due, dueTime, tags, timeSpent, startedAt }`), persisted to `localStorage` under the `todo.tasks` key.
+- **Due dates** use local calendar days; an optional `dueTime` (`HH:MM`) makes overdue comparisons precise to the exact moment, and due-date sorting compares the full date + time.
 - **Tags** are parsed from `#hashtags` in the task text, stored deduped and lowercased, and re-inserted as `#tags` when editing so they round-trip.
 - **Time tracking** stores banked milliseconds in `timeSpent` plus a `startedAt` timestamp while running; a single one-second interval updates the live display and stops itself when no timer is active.
 - **Rendering** is handled by a single `render()` function that redraws the list from state on every change.

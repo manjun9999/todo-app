@@ -10,6 +10,7 @@ A simple, self-contained todo list that runs entirely in the browser — no buil
 - 📅 **Due dates** — optionally attach a due date when adding, then click a task's date pill to change or clear it. Pills are color-coded: overdue (red), due today (highlighted), upcoming (muted)
 - ✏️ **Edit in place** — double-click a task or click the pencil (Enter to save, Escape to cancel)
 - 🔀 **Drag to reorder** — grab the ⠿ handle and drop a task where you want it
+- ↕️ **Sort** — switch between **My order** (manual drag order) and **Due date** (earliest first, undated tasks last)
 - 🗂️ **Filter tabs** — view **All**, **Active**, or **Done**, each with a live count badge
 - 🌙 **Dark mode** — toggle light/dark, or follow your operating system's preference automatically
 - 💾 **Persistent** — tasks and theme choice are stored in the browser's `localStorage`
@@ -44,7 +45,8 @@ todo-app/
 - **Due dates** use local calendar days and are compared against today to flag overdue, due-today, and upcoming tasks.
 - **Rendering** is handled by a single `render()` function that redraws the list from state on every change.
 - **Theme** preference is stored under `todo.theme`; when unset, the app respects the OS `prefers-color-scheme` setting.
-- **Reordering** rearranges the `tasks` array via the native HTML5 drag-and-drop API and re-saves.
+- **Reordering** rearranges the `tasks` array via the native HTML5 drag-and-drop API and re-saves; drag-to-reorder is available only in "My order" sort mode.
+- **Sorting** is display-only (it never mutates stored order); the chosen mode is saved under `todo.sort`.
 
 ## Tech stack
 

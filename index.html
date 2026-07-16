@@ -14,6 +14,33 @@
       --accent-hover: #2563eb;
       --danger: #ef4444;
       --border: #e4e7eb;
+      --shadow: rgba(0, 0, 0, 0.06);
+    }
+    /* Dark palette — applied when the user picks it explicitly... */
+    :root[data-theme="dark"] {
+      --bg: #12151c;
+      --card: #1c212b;
+      --text: #e4e7eb;
+      --muted: #9aa5b1;
+      --accent: #60a5fa;
+      --accent-hover: #3b82f6;
+      --danger: #f87171;
+      --border: #2b323d;
+      --shadow: rgba(0, 0, 0, 0.4);
+    }
+    /* ...or when the OS prefers dark and the user hasn't chosen light. */
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #12151c;
+        --card: #1c212b;
+        --text: #e4e7eb;
+        --muted: #9aa5b1;
+        --accent: #60a5fa;
+        --accent-hover: #3b82f6;
+        --danger: #f87171;
+        --border: #2b323d;
+        --shadow: rgba(0, 0, 0, 0.4);
+      }
     }
     * { box-sizing: border-box; }
     body {
@@ -25,22 +52,43 @@
       justify-content: center;
       padding: 40px 16px;
       min-height: 100vh;
+      transition: background 0.2s, color 0.2s;
     }
     .app {
       width: 100%;
       max-width: 480px;
     }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin: 0 0 20px;
+    }
     h1 {
       font-size: 1.6rem;
-      margin: 0 0 20px;
+      margin: 0;
       text-align: center;
     }
+    .theme-toggle {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 1.1rem;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .theme-toggle:hover { border-color: var(--accent); }
     .card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 20px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      box-shadow: 0 1px 3px var(--shadow);
     }
     .input-row {
       display: flex;
@@ -142,7 +190,10 @@
 </head>
 <body>
   <div class="app">
-    <h1>📝 My Todo List</h1>
+    <div class="header">
+      <h1>📝 My Todo List</h1>
+      <button class="theme-toggle" id="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">🌙</button>
+    </div>
     <div class="card">
       <div class="input-row">
         <input id="new-task" type="text" placeholder="What needs to be done?" autocomplete="off" />
@@ -170,6 +221,35 @@
     const list = document.getElementById("task-list");
     const count = document.getElementById("count");
     const clearDone = document.getElementById("clear-done");
+    const themeToggle = document.getElementById("theme-toggle");
+
+    const THEME_KEY = "todo.theme";
+
+    // Applies a theme ("dark"/"light"), or falls back to the OS preference
+    // when no explicit choice has been saved.
+    function applyTheme(theme) {
+      if (theme === "dark" || theme === "light") {
+        document.documentElement.setAttribute("data-theme", theme);
+      } else {
+        document.documentElement.removeAttribute("data-theme");
+      }
+      const isDark =
+        theme === "dark" ||
+        (!theme && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      themeToggle.textContent = isDark ? "☀️" : "🌙";
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.getAttribute("data-theme") === "dark" ||
+        (!document.documentElement.getAttribute("data-theme") &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches);
+      const next = isDark ? "light" : "dark";
+      localStorage.setItem(THEME_KEY, next);
+      applyTheme(next);
+    }
+
+    applyTheme(localStorage.getItem(THEME_KEY));
+    themeToggle.addEventListener("click", toggleTheme);
 
     let tasks = load();
 

@@ -116,6 +116,25 @@
       padding: 10px 16px;
     }
     .add-btn:hover { background: var(--accent-hover); }
+    .filters {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .filter-btn {
+      flex: 1;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 6px 0;
+      font-size: 0.9rem;
+    }
+    .filter-btn:hover { border-color: var(--accent); }
+    .filter-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
     ul {
       list-style: none;
       margin: 0;
@@ -199,6 +218,11 @@
         <input id="new-task" type="text" placeholder="What needs to be done?" autocomplete="off" />
         <button class="add-btn" id="add-btn">Add</button>
       </div>
+      <div class="filters" id="filters">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="active">Active</button>
+        <button class="filter-btn" data-filter="done">Done</button>
+      </div>
       <ul id="task-list"></ul>
       <div class="footer">
         <span id="count">0 items left</span>
@@ -222,8 +246,10 @@
     const count = document.getElementById("count");
     const clearDone = document.getElementById("clear-done");
     const themeToggle = document.getElementById("theme-toggle");
+    const filters = document.getElementById("filters");
 
     const THEME_KEY = "todo.theme";
+    let currentFilter = "all";
 
     // Applies a theme ("dark"/"light"), or falls back to the OS preference
     // when no explicit choice has been saved.
@@ -330,14 +356,27 @@
     function render() {
       list.innerHTML = "";
 
-      if (tasks.length === 0) {
+      const visible = tasks.filter((task) => {
+        if (currentFilter === "active") return !task.done;
+        if (currentFilter === "done") return task.done;
+        return true;
+      });
+
+      if (visible.length === 0) {
         const empty = document.createElement("li");
         empty.className = "empty";
-        empty.textContent = "No tasks yet — add one above!";
+        empty.textContent =
+          tasks.length === 0
+            ? "No tasks yet — add one above!"
+            : currentFilter === "active"
+            ? "No active tasks. 🎉"
+            : currentFilter === "done"
+            ? "No completed tasks yet."
+            : "No tasks to show.";
         list.appendChild(empty);
       }
 
-      tasks.forEach((task) => {
+      visible.forEach((task) => {
         const li = document.createElement("li");
         if (task.done) li.classList.add("done");
 
@@ -371,6 +410,16 @@
       const remaining = tasks.filter((t) => !t.done).length;
       count.textContent = `${remaining} item${remaining === 1 ? "" : "s"} left`;
     }
+
+    filters.addEventListener("click", (e) => {
+      const btn = e.target.closest(".filter-btn");
+      if (!btn) return;
+      currentFilter = btn.dataset.filter;
+      filters.querySelectorAll(".filter-btn").forEach((b) =>
+        b.classList.toggle("active", b === btn)
+      );
+      render();
+    });
 
     addBtn.addEventListener("click", () => {
       addTask(input.value);

@@ -164,6 +164,16 @@
       border-bottom: 1px solid var(--border);
     }
     li:last-child { border-bottom: none; }
+    li.dragging { opacity: 0.4; }
+    li.drag-over { box-shadow: inset 0 2px 0 var(--accent); }
+    .grip {
+      cursor: grab;
+      color: var(--muted);
+      font-size: 1rem;
+      user-select: none;
+      flex-shrink: 0;
+    }
+    .grip:active { cursor: grabbing; }
     li input[type="checkbox"] {
       width: 18px;
       height: 18px;
@@ -266,6 +276,19 @@
 
     const THEME_KEY = "todo.theme";
     let currentFilter = "all";
+    let draggedId = null;
+
+    // Moves the dragged task to the position of the task it was dropped on.
+    function reorderTasks(fromId, toId) {
+      if (fromId === toId) return;
+      const from = tasks.findIndex((t) => t.id === fromId);
+      if (from === -1) return;
+      const [moved] = tasks.splice(from, 1);
+      const to = tasks.findIndex((t) => t.id === toId);
+      tasks.splice(to === -1 ? tasks.length : to, 0, moved);
+      save();
+      render();
+    }
 
     // Applies a theme ("dark"/"light"), or falls back to the OS preference
     // when no explicit choice has been saved.
@@ -341,6 +364,7 @@
 
     // Swaps a task's text span for an inline input so it can be edited.
     function startEdit(li, span, task) {
+      li.draggable = false;
       const editInput = document.createElement("input");
       editInput.type = "text";
       editInput.className = "edit-input";
@@ -395,6 +419,39 @@
       visible.forEach((task) => {
         const li = document.createElement("li");
         if (task.done) li.classList.add("done");
+        li.draggable = true;
+
+        li.addEventListener("dragstart", (e) => {
+          draggedId = task.id;
+          li.classList.add("dragging");
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", String(task.id));
+        });
+        li.addEventListener("dragend", () => {
+          draggedId = null;
+          li.classList.remove("dragging");
+          list.querySelectorAll(".drag-over").forEach((el) =>
+            el.classList.remove("drag-over")
+          );
+        });
+        li.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          if (draggedId !== null && draggedId !== task.id) {
+            li.classList.add("drag-over");
+          }
+        });
+        li.addEventListener("dragleave", () => li.classList.remove("drag-over"));
+        li.addEventListener("drop", (e) => {
+          e.preventDefault();
+          li.classList.remove("drag-over");
+          if (draggedId !== null) reorderTasks(draggedId, task.id);
+        });
+
+        const grip = document.createElement("span");
+        grip.className = "grip";
+        grip.textContent = "⠿";
+        grip.title = "Drag to reorder";
 
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
@@ -419,7 +476,7 @@
         del.title = "Delete";
         del.addEventListener("click", () => deleteTask(task.id));
 
-        li.append(checkbox, span, edit, del);
+        li.append(grip, checkbox, span, edit, del);
         list.appendChild(li);
       });
 

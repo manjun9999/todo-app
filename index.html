@@ -135,6 +135,22 @@
       border-color: var(--accent);
       color: #fff;
     }
+    .badge {
+      display: inline-block;
+      min-width: 18px;
+      padding: 0 5px;
+      margin-left: 4px;
+      border-radius: 9px;
+      background: var(--border);
+      color: var(--text);
+      font-size: 0.75rem;
+      line-height: 1.4;
+      vertical-align: middle;
+    }
+    .filter-btn.active .badge {
+      background: rgba(255, 255, 255, 0.28);
+      color: #fff;
+    }
     ul {
       list-style: none;
       margin: 0;
@@ -219,9 +235,9 @@
         <button class="add-btn" id="add-btn">Add</button>
       </div>
       <div class="filters" id="filters">
-        <button class="filter-btn active" data-filter="all">All</button>
-        <button class="filter-btn" data-filter="active">Active</button>
-        <button class="filter-btn" data-filter="done">Done</button>
+        <button class="filter-btn active" data-filter="all">All <span class="badge" data-count="all">0</span></button>
+        <button class="filter-btn" data-filter="active">Active <span class="badge" data-count="active">0</span></button>
+        <button class="filter-btn" data-filter="done">Done <span class="badge" data-count="done">0</span></button>
       </div>
       <ul id="task-list"></ul>
       <div class="footer">
@@ -407,8 +423,13 @@
         list.appendChild(li);
       });
 
-      const remaining = tasks.filter((t) => !t.done).length;
+      const doneCount = tasks.filter((t) => t.done).length;
+      const remaining = tasks.length - doneCount;
       count.textContent = `${remaining} item${remaining === 1 ? "" : "s"} left`;
+
+      filters.querySelector('[data-count="all"]').textContent = tasks.length;
+      filters.querySelector('[data-count="active"]').textContent = remaining;
+      filters.querySelector('[data-count="done"]').textContent = doneCount;
     }
 
     filters.addEventListener("click", (e) => {

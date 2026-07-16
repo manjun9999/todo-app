@@ -280,6 +280,23 @@ li.done .due { opacity: 0.5; }
   background: var(--card);
   outline: none;
 }
+.timer {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.timer:hover { border-color: var(--accent); }
+.timer.running {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
 .edit-btn {
   background: transparent;
   color: var(--muted);

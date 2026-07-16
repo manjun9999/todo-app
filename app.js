@@ -135,6 +135,69 @@ function setDue(id, due) {
   render();
 }
 
+// Total tracked time for a task in ms, including the current run if active.
+function currentTotal(task) {
+  const base = task.timeSpent || 0;
+  return task.startedAt ? base + (Date.now() - task.startedAt) : base;
+}
+
+// Formats a duration in ms as M:SS, or H:MM:SS once it passes an hour.
+function formatDuration(ms) {
+  const total = Math.floor(ms / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+}
+
+// Starts or stops a task's timer. Only one timer runs at a time — starting
+// one banks the elapsed time of any other running task first.
+function toggleTimer(id) {
+  const task = tasks.find((t) => t.id === id);
+  if (!task) return;
+  const now = Date.now();
+  if (task.startedAt) {
+    task.timeSpent = (task.timeSpent || 0) + (now - task.startedAt);
+    task.startedAt = null;
+  } else {
+    tasks.forEach((t) => {
+      if (t.startedAt) {
+        t.timeSpent = (t.timeSpent || 0) + (now - t.startedAt);
+        t.startedAt = null;
+      }
+    });
+    task.startedAt = now;
+  }
+  save();
+  render();
+}
+
+// Drives the per-second live update of a running timer (and the Timing total).
+let tickHandle = null;
+function ensureTicking() {
+  const anyRunning = tasks.some((t) => t.startedAt);
+  if (anyRunning && !tickHandle) {
+    tickHandle = setInterval(tick, 1000);
+  } else if (!anyRunning && tickHandle) {
+    clearInterval(tickHandle);
+    tickHandle = null;
+  }
+}
+function tick() {
+  const running = tasks.find((t) => t.startedAt);
+  if (!running) {
+    ensureTicking();
+    return;
+  }
+  const btn = list.querySelector(".timer.running");
+  if (btn) btn.textContent = `⏸ ${formatDuration(currentTotal(running))}`;
+  if (currentFilter === "timing") {
+    const total = tasks.reduce((sum, t) => sum + currentTotal(t), 0);
+    count.textContent = `Total tracked: ${formatDuration(total)}`;
+  }
+}
+
 function toggleTask(id) {
   const task = tasks.find((t) => t.id === id);
   if (task) task.done = !task.done;
@@ -238,6 +301,7 @@ function render() {
     }
     if (currentFilter === "active") return !task.done;
     if (currentFilter === "done") return task.done;
+    if (currentFilter === "timing") return currentTotal(task) > 0;
     return true;
   });
 
@@ -260,9 +324,10 @@ function render() {
     tagFilter.hidden = true;
   }
 
-  // Sort by due date when selected: dated tasks first (earliest first),
-  // undated tasks last, keeping their manual order among themselves.
-  if (sortMode === "due") {
+  // The Timing view always orders by most time tracked first.
+  if (currentFilter === "timing") {
+    visible.sort((a, b) => currentTotal(b) - currentTotal(a));
+  } else if (sortMode === "due") {
     visible.sort((a, b) => {
       if (a.due && b.due) return a.due < b.due ? -1 : a.due > b.due ? 1 : 0;
       if (a.due) return -1;
@@ -285,6 +350,8 @@ function render() {
         ? "No active tasks. 🎉"
         : currentFilter === "done"
         ? "No completed tasks yet."
+        : currentFilter === "timing"
+        ? "No time tracked yet — press ▶ on a task."
         : "No tasks to show.";
     list.appendChild(empty);
   }
@@ -292,7 +359,7 @@ function render() {
   visible.forEach((task) => {
     const li = document.createElement("li");
     if (task.done) li.classList.add("done");
-    const canDrag = sortMode === "manual";
+    const canDrag = sortMode === "manual" && currentFilter !== "timing";
     li.draggable = canDrag;
 
     li.addEventListener("dragstart", (e) => {
@@ -344,6 +411,18 @@ function render() {
     span.title = "Double-click to edit";
     span.addEventListener("dblclick", () => startEdit(li, span, task));
 
+    const total = currentTotal(task);
+    const running = !!task.startedAt;
+    const timer = document.createElement("button");
+    timer.className = "timer" + (running ? " running" : "");
+    timer.textContent = running
+      ? `⏸ ${formatDuration(total)}`
+      : total > 0
+      ? `▶ ${formatDuration(total)}`
+      : "▶";
+    timer.title = running ? "Stop timer" : "Start timer";
+    timer.addEventListener("click", () => toggleTimer(task.id));
+
     const dueInfo = describeDue(task.due);
     const due = document.createElement("button");
     due.className = `due ${dueInfo.cls}`.trim();
@@ -377,17 +456,27 @@ function render() {
       li.append(chip);
     });
 
-    li.append(due, edit, del);
+    li.append(timer, due, edit, del);
     list.appendChild(li);
   });
 
   const doneCount = tasks.filter((t) => t.done).length;
   const remaining = tasks.length - doneCount;
-  count.textContent = `${remaining} item${remaining === 1 ? "" : "s"} left`;
+  const timedCount = tasks.filter((t) => currentTotal(t) > 0).length;
+
+  if (currentFilter === "timing") {
+    const total = tasks.reduce((sum, t) => sum + currentTotal(t), 0);
+    count.textContent = `Total tracked: ${formatDuration(total)}`;
+  } else {
+    count.textContent = `${remaining} item${remaining === 1 ? "" : "s"} left`;
+  }
 
   filters.querySelector('[data-count="all"]').textContent = tasks.length;
   filters.querySelector('[data-count="active"]').textContent = remaining;
   filters.querySelector('[data-count="done"]').textContent = doneCount;
+  filters.querySelector('[data-count="timing"]').textContent = timedCount;
+
+  ensureTicking();
 }
 
 function selectFilter(name) {
@@ -506,6 +595,9 @@ document.addEventListener("keydown", (e) => {
       break;
     case "3":
       selectFilter("done");
+      break;
+    case "4":
+      selectFilter("timing");
       break;
     case "d":
       toggleTheme();

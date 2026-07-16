@@ -13,6 +13,7 @@ A simple, self-contained todo list that runs entirely in the browser — no buil
 - ↕️ **Sort** — switch between **My order** (manual drag order) and **Due date** (earliest first, undated tasks last)
 - 🔍 **Search** — filter tasks by text as you type (case-insensitive), combined with the active tab filter
 - 🗂️ **Filter tabs** — view **All**, **Active**, or **Done**, each with a live count badge
+- ⌨️ **Keyboard shortcuts** — press <kbd>?</kbd> (or the ⌨ button) for the full list; quickly add, search, filter, and toggle themes without the mouse
 - 🌙 **Dark mode** — toggle light/dark, or follow your operating system's preference automatically
 - 💾 **Persistent** — tasks and theme choice are stored in the browser's `localStorage`
 - 🧹 **Clear completed** — remove all finished tasks at once
@@ -29,6 +30,21 @@ cd todo-app
 Then open `index.html` in any modern web browser (double-click it, or drag it into a browser window).
 
 > **Note:** keep the three files together — `index.html` links `styles.css` and `app.js` by relative path.
+
+## Keyboard shortcuts
+
+Press <kbd>?</kbd> in the app to see these at any time.
+
+| Key | Action |
+|-----|--------|
+| <kbd>n</kbd> | Focus the new-task input |
+| <kbd>/</kbd> | Focus search |
+| <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> | Filter All / Active / Done |
+| <kbd>d</kbd> | Toggle dark mode |
+| <kbd>?</kbd> | Show / hide the shortcuts help |
+| <kbd>Esc</kbd> | Close help · clear search |
+
+Shortcuts are ignored while you're typing in a field or holding a modifier key.
 
 ## Project structure
 

@@ -11,6 +11,7 @@ A simple, self-contained todo list that runs entirely in the browser — no buil
 - ✏️ **Edit in place** — double-click a task or click the pencil (Enter to save, Escape to cancel)
 - 🔀 **Drag to reorder** — grab the ⠿ handle and drop a task where you want it
 - ↕️ **Sort** — switch between **My order** (manual drag order) and **Due date** (earliest first, undated tasks last)
+- 🔍 **Search** — filter tasks by text as you type (case-insensitive), combined with the active tab filter
 - 🗂️ **Filter tabs** — view **All**, **Active**, or **Done**, each with a live count badge
 - 🌙 **Dark mode** — toggle light/dark, or follow your operating system's preference automatically
 - 💾 **Persistent** — tasks and theme choice are stored in the browser's `localStorage`

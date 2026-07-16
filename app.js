@@ -7,6 +7,7 @@ helloWorld();
 
 const STORAGE_KEY = "todo.tasks";
 const input = document.getElementById("new-task");
+const dueInput = document.getElementById("new-due");
 const addBtn = document.getElementById("add-btn");
 const list = document.getElementById("task-list");
 const count = document.getElementById("count");
@@ -70,10 +71,40 @@ function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
 }
 
-function addTask(text) {
+// Local calendar date as "YYYY-MM-DD" (avoids UTC off-by-one from toISOString).
+function todayStr() {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+// Describes a due date relative to today: label to show, style class, and tooltip.
+function describeDue(due) {
+  if (!due) return { label: "📅", cls: "", title: "Set a due date" };
+  const [y, m, d] = due.split("-").map(Number);
+  const label = new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+  const today = todayStr();
+  if (due < today) return { label, cls: "set overdue", title: `Overdue — due ${due}` };
+  if (due === today) return { label: "Today", cls: "set today", title: `Due today (${due})` };
+  return { label, cls: "set", title: `Due ${due}` };
+}
+
+function addTask(text, due) {
   const trimmed = text.trim();
   if (!trimmed) return;
-  tasks.push({ id: Date.now(), text: trimmed, done: false });
+  tasks.push({ id: Date.now(), text: trimmed, done: false, due: due || null });
+  save();
+  render();
+}
+
+function setDue(id, due) {
+  const task = tasks.find((t) => t.id === id);
+  if (!task) return;
+  task.due = due || null;
   save();
   render();
 }
@@ -131,6 +162,37 @@ function startEdit(li, span, task) {
   li.replaceChild(editInput, span);
   editInput.focus();
   editInput.select();
+}
+
+// Swaps a task's due-date pill for a date picker to set, change, or clear it.
+function startDueEdit(li, pill, task) {
+  li.draggable = false;
+  const picker = document.createElement("input");
+  picker.type = "date";
+  picker.className = "due-input";
+  picker.value = task.due || "";
+
+  let finished = false;
+  const commit = () => {
+    if (finished) return;
+    finished = true;
+    setDue(task.id, picker.value);
+  };
+
+  picker.addEventListener("change", commit);
+  picker.addEventListener("blur", commit);
+  picker.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      finished = true;
+      render();
+    }
+  });
+
+  li.replaceChild(picker, pill);
+  picker.focus();
+  if (picker.showPicker) {
+    try { picker.showPicker(); } catch {}
+  }
 }
 
 function render() {
@@ -204,6 +266,13 @@ function render() {
     span.title = "Double-click to edit";
     span.addEventListener("dblclick", () => startEdit(li, span, task));
 
+    const dueInfo = describeDue(task.due);
+    const due = document.createElement("button");
+    due.className = `due ${dueInfo.cls}`.trim();
+    due.textContent = dueInfo.label;
+    due.title = dueInfo.title;
+    due.addEventListener("click", () => startDueEdit(li, due, task));
+
     const edit = document.createElement("button");
     edit.className = "edit-btn";
     edit.textContent = "✎";
@@ -216,7 +285,7 @@ function render() {
     del.title = "Delete";
     del.addEventListener("click", () => deleteTask(task.id));
 
-    li.append(grip, checkbox, span, edit, del);
+    li.append(grip, checkbox, span, due, edit, del);
     list.appendChild(li);
   });
 
@@ -239,17 +308,17 @@ filters.addEventListener("click", (e) => {
   render();
 });
 
-addBtn.addEventListener("click", () => {
-  addTask(input.value);
+function submitNewTask() {
+  addTask(input.value, dueInput.value);
   input.value = "";
+  dueInput.value = "";
   input.focus();
-});
+}
+
+addBtn.addEventListener("click", submitNewTask);
 
 input.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    addTask(input.value);
-    input.value = "";
-  }
+  if (e.key === "Enter") submitNewTask();
 });
 
 clearDone.addEventListener("click", () => {

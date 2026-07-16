@@ -8,6 +8,7 @@ helloWorld();
 const STORAGE_KEY = "todo.tasks";
 const input = document.getElementById("new-task");
 const dueInput = document.getElementById("new-due");
+const timeInput = document.getElementById("new-time");
 const addBtn = document.getElementById("add-btn");
 const list = document.getElementById("task-list");
 const count = document.getElementById("count");
@@ -104,33 +105,58 @@ function todayStr() {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
-// Describes a due date relative to today: label to show, style class, and tooltip.
-function describeDue(due) {
+// Describes a due date (with optional HH:MM time) relative to now: label to
+// show, style class, and tooltip. Timed dates compare against the exact moment.
+function describeDue(due, dueTime) {
   if (!due) return { label: "📅", cls: "", title: "Set a due date" };
   const [y, m, d] = due.split("-").map(Number);
-  const label = new Date(y, m - 1, d).toLocaleDateString(undefined, {
+  const dt = new Date(y, m - 1, d);
+  const dateLabel = dt.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
   });
+  let timeLabel = "";
+  if (dueTime) {
+    const [hh, mm] = dueTime.split(":").map(Number);
+    dt.setHours(hh, mm, 0, 0);
+    timeLabel = dt.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+
   const today = todayStr();
-  if (due < today) return { label, cls: "set overdue", title: `Overdue — due ${due}` };
-  if (due === today) return { label: "Today", cls: "set today", title: `Due today (${due})` };
-  return { label, cls: "set", title: `Due ${due}` };
+  const isToday = due === today;
+  const overdue = dueTime ? dt.getTime() < Date.now() : due < today;
+
+  let label;
+  if (isToday) label = dueTime ? `Today, ${timeLabel}` : "Today";
+  else label = dueTime ? `${dateLabel}, ${timeLabel}` : dateLabel;
+
+  const full = dueTime ? `${due} ${dueTime}` : due;
+  if (overdue) return { label, cls: "set overdue", title: `Overdue — due ${full}` };
+  if (isToday) return { label, cls: "set today", title: `Due today (${full})` };
+  return { label, cls: "set", title: `Due ${full}` };
 }
 
-function addTask(rawText, due) {
+function addTask(rawText, due, dueTime) {
   const { text, tags } = parseTags(rawText);
   const trimmed = text.trim();
   if (!trimmed) return;
-  tasks.push({ id: Date.now(), text: trimmed, done: false, due: due || null, tags });
+  tasks.push({
+    id: Date.now(),
+    text: trimmed,
+    done: false,
+    due: due || null,
+    dueTime: due && dueTime ? dueTime : null,
+    tags,
+  });
   save();
   render();
 }
 
-function setDue(id, due) {
+function setDue(id, due, dueTime) {
   const task = tasks.find((t) => t.id === id);
   if (!task) return;
   task.due = due || null;
+  task.dueTime = due && dueTime ? dueTime : null;
   save();
   render();
 }
@@ -256,35 +282,46 @@ function startEdit(li, span, task) {
   editInput.select();
 }
 
-// Swaps a task's due-date pill for a date picker to set, change, or clear it.
+// Swaps a task's due pill for date + time pickers to set, change, or clear it.
+// Clearing the date removes the due date (and any time) entirely.
 function startDueEdit(li, pill, task) {
   li.draggable = false;
-  const picker = document.createElement("input");
-  picker.type = "date";
-  picker.className = "due-input";
-  picker.value = task.due || "";
+  const wrap = document.createElement("span");
+  wrap.className = "due-edit";
+
+  const dateI = document.createElement("input");
+  dateI.type = "date";
+  dateI.className = "due-input";
+  dateI.value = task.due || "";
+
+  const timeI = document.createElement("input");
+  timeI.type = "time";
+  timeI.className = "due-input";
+  timeI.value = task.dueTime || "";
+
+  wrap.append(dateI, timeI);
 
   let finished = false;
   const commit = () => {
     if (finished) return;
     finished = true;
-    setDue(task.id, picker.value);
+    setDue(task.id, dateI.value, timeI.value);
   };
 
-  picker.addEventListener("change", commit);
-  picker.addEventListener("blur", commit);
-  picker.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
+  // Commit only when focus leaves both inputs (not when tabbing between them).
+  wrap.addEventListener("focusout", (e) => {
+    if (!wrap.contains(e.relatedTarget)) commit();
+  });
+  wrap.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") commit();
+    else if (e.key === "Escape") {
       finished = true;
       render();
     }
   });
 
-  li.replaceChild(picker, pill);
-  picker.focus();
-  if (picker.showPicker) {
-    try { picker.showPicker(); } catch {}
-  }
+  li.replaceChild(wrap, pill);
+  dateI.focus();
 }
 
 function render() {
@@ -328,10 +365,15 @@ function render() {
   if (currentFilter === "timing") {
     visible.sort((a, b) => currentTotal(b) - currentTotal(a));
   } else if (sortMode === "due") {
+    // Compare full date+time; undated tasks sink to the bottom, and a dated
+    // task with no time sorts to the end of its day.
+    const key = (t) => (t.due ? `${t.due}T${t.dueTime || "24:00"}` : null);
     visible.sort((a, b) => {
-      if (a.due && b.due) return a.due < b.due ? -1 : a.due > b.due ? 1 : 0;
-      if (a.due) return -1;
-      if (b.due) return 1;
+      const ka = key(a);
+      const kb = key(b);
+      if (ka && kb) return ka < kb ? -1 : ka > kb ? 1 : 0;
+      if (ka) return -1;
+      if (kb) return 1;
       return 0;
     });
   }
@@ -423,7 +465,7 @@ function render() {
     timer.title = running ? "Stop timer" : "Start timer";
     timer.addEventListener("click", () => toggleTimer(task.id));
 
-    const dueInfo = describeDue(task.due);
+    const dueInfo = describeDue(task.due, task.dueTime);
     const due = document.createElement("button");
     due.className = `due ${dueInfo.cls}`.trim();
     due.textContent = dueInfo.label;
@@ -506,9 +548,10 @@ search.addEventListener("input", () => {
 });
 
 function submitNewTask() {
-  addTask(input.value, dueInput.value);
+  addTask(input.value, dueInput.value, timeInput.value);
   input.value = "";
   dueInput.value = "";
+  timeInput.value = "";
   input.focus();
 }
 

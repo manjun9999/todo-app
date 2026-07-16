@@ -86,6 +86,7 @@ h1 {
 }
 .input-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 16px;
 }
@@ -98,7 +99,8 @@ h1 {
   outline: none;
 }
 #new-task:focus { border-color: var(--accent); }
-#new-due {
+#new-due,
+#new-time {
   padding: 10px 8px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -107,7 +109,8 @@ h1 {
   background: var(--card);
   outline: none;
 }
-#new-due:focus { border-color: var(--accent); }
+#new-due:focus,
+#new-time:focus { border-color: var(--accent); }
 button {
   border: none;
   cursor: pointer;
@@ -270,6 +273,11 @@ li.done .tag { opacity: 0.5; }
   border-color: var(--danger);
 }
 li.done .due { opacity: 0.5; }
+.due-edit {
+  display: inline-flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
 .due-input {
   flex-shrink: 0;
   padding: 2px 4px;

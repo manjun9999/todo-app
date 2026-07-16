@@ -15,10 +15,12 @@ const clearDone = document.getElementById("clear-done");
 const themeToggle = document.getElementById("theme-toggle");
 const filters = document.getElementById("filters");
 const sortSelect = document.getElementById("sort-select");
+const search = document.getElementById("search");
 
 const THEME_KEY = "todo.theme";
 const SORT_KEY = "todo.sort";
 let currentFilter = "all";
+let searchQuery = "";
 let sortMode = localStorage.getItem(SORT_KEY) || "manual";
 let draggedId = null;
 
@@ -201,7 +203,9 @@ function startDueEdit(li, pill, task) {
 function render() {
   list.innerHTML = "";
 
+  const query = searchQuery.trim().toLowerCase();
   const visible = tasks.filter((task) => {
+    if (query && !task.text.toLowerCase().includes(query)) return false;
     if (currentFilter === "active") return !task.done;
     if (currentFilter === "done") return task.done;
     return true;
@@ -224,6 +228,8 @@ function render() {
     empty.textContent =
       tasks.length === 0
         ? "No tasks yet — add one above!"
+        : query
+        ? `No tasks match “${searchQuery.trim()}”.`
         : currentFilter === "active"
         ? "No active tasks. 🎉"
         : currentFilter === "done"
@@ -333,6 +339,11 @@ sortSelect.value = sortMode;
 sortSelect.addEventListener("change", () => {
   sortMode = sortSelect.value;
   localStorage.setItem(SORT_KEY, sortMode);
+  render();
+});
+
+search.addEventListener("input", () => {
+  searchQuery = search.value;
   render();
 });
 

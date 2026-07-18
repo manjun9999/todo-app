@@ -28,6 +28,11 @@ function initDb(): Database.Database {
       fat        REAL    NOT NULL,
       logged_at  TEXT    NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key   TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `);
   return db;
 }
@@ -57,6 +62,30 @@ function rowToEntry(row: Row): LogEntry {
     fat: row.fat,
     loggedAt: row.logged_at,
   };
+}
+
+const GOAL_KEY = 'daily_calorie_goal';
+const DEFAULT_GOAL = 2000;
+export const MIN_GOAL = 500;
+export const MAX_GOAL = 10000;
+
+/** Read the daily calorie goal, falling back to the default if unset. */
+export function getGoal(): number {
+  const row = db
+    .prepare(`SELECT value FROM settings WHERE key = ?`)
+    .get(GOAL_KEY) as { value: string } | undefined;
+  const parsed = row ? Number(row.value) : NaN;
+  return Number.isFinite(parsed) ? parsed : DEFAULT_GOAL;
+}
+
+/** Persist the daily calorie goal (clamped to a sane range) and return it. */
+export function setGoal(goal: number): number {
+  const clamped = Math.round(Math.min(MAX_GOAL, Math.max(MIN_GOAL, goal)));
+  db.prepare(
+    `INSERT INTO settings (key, value) VALUES (@key, @value)
+     ON CONFLICT(key) DO UPDATE SET value = @value`
+  ).run({ key: GOAL_KEY, value: String(clamped) });
+  return clamped;
 }
 
 /** Local YYYY-MM-DD for "today", used to scope the log to the current day. */
@@ -91,7 +120,7 @@ export function getTodayLog(): LogResponse {
     )
     .all(todayKey()) as Row[];
   const entries = rows.map(rowToEntry);
-  return { entries, totals: computeTotals(entries) };
+  return { entries, totals: computeTotals(entries), goal: getGoal() };
 }
 
 export interface NewEntry {

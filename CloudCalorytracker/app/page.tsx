@@ -11,6 +11,7 @@ import DailyLog from '@/components/DailyLog';
 const EMPTY: LogResponse = {
   entries: [],
   totals: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+  goal: 2000,
 };
 
 export default function Home() {
@@ -64,6 +65,24 @@ export default function Home() {
     }
   }
 
+  async function updateGoal(goal: number) {
+    // Optimistically show the new goal, then persist and reconcile.
+    const prev = log;
+    setLog((cur) => ({ ...cur, goal }));
+    try {
+      const res = await fetch('/api/goal', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goal }),
+      });
+      if (!res.ok) throw new Error('goal update failed');
+      const { goal: saved }: { goal: number } = await res.json();
+      setLog((cur) => ({ ...cur, goal: saved })); // server clamps to valid range
+    } catch {
+      setLog(prev); // roll back on failure
+    }
+  }
+
   async function removeEntry(id: number) {
     // Optimistic removal, then reconcile with the server.
     const prev = log;
@@ -87,7 +106,7 @@ export default function Home() {
         🥗 CloudCaloryTracker
       </h1>
 
-      <SummaryHeader totals={log.totals} />
+      <SummaryHeader totals={log.totals} goal={log.goal} onGoalChange={updateGoal} />
 
       <section className="mt-8">
         <SearchBar value={query} onChange={setQuery} />

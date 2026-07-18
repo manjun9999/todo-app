@@ -45,4 +45,5 @@ export interface Totals {
 export interface LogResponse {
   entries: LogEntry[];
   totals: Totals;
+  goal: number; // daily calorie goal
 }

@@ -14,8 +14,11 @@ totals at the top. No login, no accounts — just open it and track.
   remove button.
 - **Summary header** shows today's total calories and macro breakdown, updating
   as you add or remove foods.
-- **Persistent** — the log is saved to a local SQLite database, so it survives
-  page refreshes and server restarts. The log is scoped per calendar day.
+- **Daily goal** — set a calorie target; the header shows a progress bar,
+  remaining calories, and flips to "over goal" once you pass it.
+- **Persistent** — the log and goal are saved to a local SQLite database, so
+  they survive page refreshes and server restarts. The log is scoped per
+  calendar day.
 
 ## Tech stack
 
@@ -54,11 +57,12 @@ CloudCalorytracker/
 │   ├── page.tsx              Main single-page UI (client component)
 │   ├── globals.css           Tailwind entry + base styles
 │   └── api/
-│       └── log/
-│           ├── route.ts      GET (today's log + totals), POST (add entry)
-│           └── [id]/route.ts DELETE (remove entry by id)
+│       ├── log/
+│       │   ├── route.ts      GET (today's log + totals + goal), POST (add entry)
+│       │   └── [id]/route.ts DELETE (remove entry by id)
+│       └── goal/route.ts     GET / PUT the daily calorie goal
 ├── components/
-│   ├── SummaryHeader.tsx     Calorie total + macro tiles
+│   ├── SummaryHeader.tsx     Calorie total, macro tiles, goal + progress bar
 │   ├── SearchBar.tsx         Food search input
 │   ├── FoodCard.tsx          Tappable food card
 │   └── DailyLog.tsx          Log list + remove buttons
@@ -78,22 +82,26 @@ CloudCalorytracker/
 - **LogEntry** (SQLite table `log_entries`): a snapshot of a food at the moment
   it was logged, plus `id` and `loggedAt`. Snapshotting means editing the
   catalog later never rewrites past log history.
+- **Settings** (SQLite table `settings`): a small key/value store; currently
+  holds `daily_calorie_goal` (default 2000, clamped to 500–10000).
 
 ## API
 
-| Method | Route            | Purpose                                  |
-| ------ | ---------------- | ---------------------------------------- |
-| GET    | `/api/log`       | Today's entries + computed totals        |
-| POST   | `/api/log`       | Add an entry `{ foodName, serving, ... }`|
-| DELETE | `/api/log/[id]`  | Remove an entry by id                    |
+| Method | Route            | Purpose                                       |
+| ------ | ---------------- | --------------------------------------------- |
+| GET    | `/api/log`       | Today's entries + computed totals + goal      |
+| POST   | `/api/log`       | Add an entry `{ foodName, serving, ... }`     |
+| DELETE | `/api/log/[id]`  | Remove an entry by id                         |
+| GET    | `/api/goal`      | Current daily calorie goal                    |
+| PUT    | `/api/goal`      | Set the daily calorie goal `{ goal }`         |
 
 Totals are always computed server-side so the client can't drift out of sync.
+`GET /api/log` also returns the goal, so the UI gets everything in one fetch.
 
 ## What's coming next
 
 - **Custom foods** — add foods not in the catalog, with your own macros.
 - **Adjustable servings / quantities** — log "2 eggs" or "1.5 cups rice".
-- **Daily calorie goal** — set a target and show progress against it.
 - **History view** — browse and compare previous days, not just today.
 - **Edit entries** — currently entries can only be added or removed.
 - **Tests** — unit tests for `lib/db.ts` totals math and API route validation.

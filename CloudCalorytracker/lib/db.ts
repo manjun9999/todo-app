@@ -7,6 +7,7 @@ import type {
   LogResponse,
   CatalogFood,
   NewCustomFood,
+  DaySummary,
 } from './types';
 
 // Store the SQLite file under ./data so it's easy to find and .gitignore.
@@ -57,6 +58,14 @@ function initDb(): Database.Database {
   // calories/protein/carbs/fat store the PER-SERVING (base) values; the eaten
   // amount is base * quantity, computed on read. Existing rows default to 1.
   ensureColumn(db, 'log_entries', 'quantity', 'quantity REAL NOT NULL DEFAULT 1');
+
+  // log_date (local YYYY-MM-DD) is the authoritative day-grouping key. Backfill
+  // older rows from the timestamp's date portion.
+  ensureColumn(db, 'log_entries', 'log_date', "log_date TEXT NOT NULL DEFAULT ''");
+  db.exec(
+    `UPDATE log_entries SET log_date = substr(logged_at, 1, 10)
+     WHERE log_date = '' OR log_date IS NULL`
+  );
 
   return db;
 }
@@ -155,17 +164,56 @@ function computeTotals(entries: LogEntry[]): Totals {
   );
 }
 
-/** Fetch today's log entries (newest first) plus aggregate totals. */
-export function getTodayLog(): LogResponse {
+/** Fetch a single day's log entries (newest first) plus aggregate totals. */
+export function getLog(date?: string): LogResponse {
+  const day = date ?? todayKey();
   const rows = db
     .prepare(
       `SELECT * FROM log_entries
-       WHERE substr(logged_at, 1, 10) = ?
+       WHERE log_date = ?
        ORDER BY id DESC`
     )
-    .all(todayKey()) as Row[];
+    .all(day) as Row[];
   const entries = rows.map(rowToEntry);
   return { entries, totals: computeTotals(entries), goal: getGoal() };
+}
+
+/** Convenience wrapper for today's log. */
+export function getTodayLog(): LogResponse {
+  return getLog();
+}
+
+/** Per-day rollups for the most recent `days` days that have entries. */
+export function getHistory(days: number): DaySummary[] {
+  const rows = db
+    .prepare(
+      `SELECT log_date                AS date,
+              SUM(calories * quantity) AS calories,
+              SUM(protein  * quantity) AS protein,
+              SUM(carbs    * quantity) AS carbs,
+              SUM(fat      * quantity) AS fat,
+              COUNT(*)                 AS count
+       FROM log_entries
+       GROUP BY log_date
+       ORDER BY log_date DESC
+       LIMIT ?`
+    )
+    .all(days) as Array<
+    DaySummary & {
+      calories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+    }
+  >;
+  return rows.map((r) => ({
+    date: r.date,
+    calories: Math.round(r.calories),
+    protein: round1(r.protein),
+    carbs: round1(r.carbs),
+    fat: round1(r.fat),
+    count: r.count,
+  }));
 }
 
 export const MIN_QTY = 0.25;
@@ -185,18 +233,22 @@ export interface NewEntry {
   carbs: number; // per serving (base)
   fat: number; // per serving (base)
   quantity: number;
+  date?: string; // YYYY-MM-DD to log to; defaults to today
 }
 
 /** Insert a new log entry (storing per-serving values + quantity). */
 export function addEntry(entry: NewEntry): LogEntry {
-  const loggedAt = new Date().toISOString();
+  const logDate = entry.date ?? todayKey();
+  // Keep the current time-of-day but stamp it onto the chosen day, so a
+  // backfilled entry shows a sensible time and its date matches log_date.
+  const loggedAt = logDate + new Date().toISOString().slice(10);
   const quantity = clampQty(entry.quantity);
   const result = db
     .prepare(
-      `INSERT INTO log_entries (food_name, serving, calories, protein, carbs, fat, quantity, logged_at)
-       VALUES (@foodName, @serving, @calories, @protein, @carbs, @fat, @quantity, @loggedAt)`
+      `INSERT INTO log_entries (food_name, serving, calories, protein, carbs, fat, quantity, log_date, logged_at)
+       VALUES (@foodName, @serving, @calories, @protein, @carbs, @fat, @quantity, @logDate, @loggedAt)`
     )
-    .run({ ...entry, quantity, loggedAt });
+    .run({ ...entry, quantity, logDate, loggedAt });
   const row = db
     .prepare(`SELECT * FROM log_entries WHERE id = ?`)
     .get(Number(result.lastInsertRowid)) as Row;

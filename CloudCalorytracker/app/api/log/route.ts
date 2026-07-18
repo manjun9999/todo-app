@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
-import { getTodayLog, addEntry } from '@/lib/db';
+import { getLog, addEntry } from '@/lib/db';
+import { isValidDateStr } from '@/lib/dates';
 
 // Always run fresh — the log changes as the user eats.
 export const dynamic = 'force-dynamic';
 
-export function GET() {
-  return NextResponse.json(getTodayLog());
+export function GET(request: Request) {
+  const raw = new URL(request.url).searchParams.get('date');
+  const date = isValidDateStr(raw) ? raw : undefined; // fall back to today
+  return NextResponse.json(getLog(date));
 }
 
 export async function POST(request: Request) {
@@ -26,6 +29,7 @@ export async function POST(request: Request) {
 
   const num = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v : 0);
   const rawQty = num(b.quantity);
+  const date = isValidDateStr(b.date) ? b.date : undefined; // else today
   const entry = addEntry({
     foodName,
     serving,
@@ -34,6 +38,7 @@ export async function POST(request: Request) {
     carbs: num(b.carbs),
     fat: num(b.fat),
     quantity: rawQty > 0 ? rawQty : 1, // default to one serving
+    date,
   });
 
   return NextResponse.json(entry, { status: 201 });

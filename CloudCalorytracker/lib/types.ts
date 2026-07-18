@@ -69,3 +69,13 @@ export interface LogResponse {
   totals: Totals;
   goal: number; // daily calorie goal
 }
+
+/** Per-day rollup for the history view. */
+export interface DaySummary {
+  date: string; // YYYY-MM-DD (local)
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  count: number; // number of entries that day
+}

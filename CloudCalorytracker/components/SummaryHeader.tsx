@@ -79,10 +79,12 @@ export default function SummaryHeader({
   totals,
   goal,
   onGoalChange,
+  dateLabel = 'Today',
 }: {
   totals: Totals;
   goal: number;
   onGoalChange: (goal: number) => void;
+  dateLabel?: string;
 }) {
   const consumed = totals.calories;
   const remaining = goal - consumed;
@@ -95,7 +97,7 @@ export default function SummaryHeader({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-medium uppercase tracking-widest text-emerald-100">
-            Today
+            {dateLabel}
           </p>
           <div className="mt-1 flex items-baseline gap-2">
             <span className="text-5xl font-bold tabular-nums">{consumed}</span>

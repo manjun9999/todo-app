@@ -1,13 +1,21 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FOODS } from '@/lib/foods';
-import type { CatalogFood, LogResponse, NewCustomFood } from '@/lib/types';
+import type {
+  CatalogFood,
+  DaySummary,
+  LogResponse,
+  NewCustomFood,
+} from '@/lib/types';
+import { formatDayLabel, todayStr } from '@/lib/dates';
 import SummaryHeader from '@/components/SummaryHeader';
+import DateNav from '@/components/DateNav';
 import SearchBar from '@/components/SearchBar';
 import FoodCard from '@/components/FoodCard';
 import AddFoodForm from '@/components/AddFoodForm';
 import DailyLog from '@/components/DailyLog';
+import HistoryPanel from '@/components/HistoryPanel';
 
 const EMPTY: LogResponse = {
   entries: [],
@@ -18,23 +26,43 @@ const EMPTY: LogResponse = {
 export default function Home() {
   const [log, setLog] = useState<LogResponse>(EMPTY);
   const [customFoods, setCustomFoods] = useState<CatalogFood[]>([]);
+  const [history, setHistory] = useState<DaySummary[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>(() => todayStr());
   const [query, setQuery] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load today's log and any custom foods on mount.
+  const loadLog = useCallback(async (date: string) => {
+    const data: LogResponse = await fetch(`/api/log?date=${date}`).then((r) =>
+      r.json()
+    );
+    setLog(data);
+  }, []);
+
+  const loadHistory = useCallback(async () => {
+    const data: DaySummary[] = await fetch('/api/history?days=14').then((r) =>
+      r.json()
+    );
+    setHistory(Array.isArray(data) ? data : []);
+  }, []);
+
+  // Custom foods never change with the date — load them once on mount.
   useEffect(() => {
-    Promise.all([
-      fetch('/api/log').then((r) => r.json()),
-      fetch('/api/foods').then((r) => r.json()),
-    ])
-      .then(([logData, foods]: [LogResponse, CatalogFood[]]) => {
-        setLog(logData);
-        setCustomFoods(Array.isArray(foods) ? foods : []);
-      })
+    fetch('/api/foods')
+      .then((r) => r.json())
+      .then((foods: CatalogFood[]) =>
+        setCustomFoods(Array.isArray(foods) ? foods : [])
+      )
+      .catch(() => setCustomFoods([]));
+  }, []);
+
+  // Load the selected day's log + history whenever the date changes.
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([loadLog(selectedDate), loadHistory()])
       .catch(() => setLog(EMPTY))
       .finally(() => setLoading(false));
-  }, []);
+  }, [selectedDate, loadLog, loadHistory]);
 
   // Custom foods come first so they're easy to find.
   const allFoods = useMemo<CatalogFood[]>(
@@ -94,12 +122,11 @@ export default function Home() {
           carbs: food.carbs,
           fat: food.fat,
           quantity,
+          date: selectedDate, // log to whichever day is being viewed
         }),
       });
       if (!res.ok) throw new Error('add failed');
-      // Re-fetch to get authoritative totals from the server.
-      const data: LogResponse = await fetch('/api/log').then((r) => r.json());
-      setLog(data);
+      await Promise.all([loadLog(selectedDate), loadHistory()]);
     } catch {
       // Keep the UI responsive; a real app would surface a toast here.
     } finally {
@@ -155,9 +182,7 @@ export default function Home() {
         body: JSON.stringify({ quantity }),
       });
       if (!res.ok) throw new Error('quantity update failed');
-      // Re-fetch for authoritative totals (server rounds from base values).
-      const data: LogResponse = await fetch('/api/log').then((r) => r.json());
-      setLog(data);
+      await Promise.all([loadLog(selectedDate), loadHistory()]);
     } catch {
       setLog(prev); // roll back on failure
     }
@@ -173,20 +198,32 @@ export default function Home() {
     try {
       const res = await fetch(`/api/log/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('delete failed');
-      const data: LogResponse = await fetch('/api/log').then((r) => r.json());
-      setLog(data);
+      await Promise.all([loadLog(selectedDate), loadHistory()]);
     } catch {
       setLog(prev); // roll back on failure
     }
   }
 
+  const dateLabel = formatDayLabel(selectedDate);
+  // "Today" / "Yesterday" read naturally with a possessive; dates don't.
+  const logHeading =
+    dateLabel === 'Today' || dateLabel === 'Yesterday'
+      ? `${dateLabel}'s Log`
+      : `Log for ${dateLabel}`;
+
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="mb-6 text-center text-2xl font-bold tracking-tight">
-        🥗 CloudCaloryTracker
+        🥗 Calorie Tracker
       </h1>
 
-      <SummaryHeader totals={log.totals} goal={log.goal} onGoalChange={updateGoal} />
+      <DateNav date={selectedDate} onChange={setSelectedDate} />
+      <SummaryHeader
+        totals={log.totals}
+        goal={log.goal}
+        onGoalChange={updateGoal}
+        dateLabel={dateLabel}
+      />
 
       <section className="mt-8">
         <SearchBar value={query} onChange={setQuery} />
@@ -213,7 +250,7 @@ export default function Home() {
 
       <section className="mt-8">
         <h2 className="mb-3 text-lg font-semibold">
-          Today&rsquo;s Log{' '}
+          {logHeading}{' '}
           <span className="text-sm font-normal text-slate-500 dark:text-slate-400">
             ({log.entries.length})
           </span>
@@ -229,8 +266,18 @@ export default function Home() {
         )}
       </section>
 
+      <section className="mt-8">
+        <h2 className="mb-3 text-lg font-semibold">Last 14 days</h2>
+        <HistoryPanel
+          days={history}
+          goal={log.goal}
+          selectedDate={selectedDate}
+          onSelect={setSelectedDate}
+        />
+      </section>
+
       <footer className="mt-10 text-center text-xs text-slate-400">
-        Data stored locally in SQLite · resets by day
+        Data stored locally in SQLite · grouped by day
       </footer>
     </main>
   );

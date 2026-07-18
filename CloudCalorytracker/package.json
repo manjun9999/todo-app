@@ -1,0 +1,23 @@
+{
+  "name": "cloud-calory-tracker",
+  "version": "0.1.0",
+  "description": "AI-powered calorie tracker using the Gemini API",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "keywords": [
+    "calorie",
+    "nutrition",
+    "gemini",
+    "ai"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "@google/generative-ai": "^0.21.0"
+  }
+}

@@ -36,7 +36,8 @@ totals at the top. No login, no accounts — just open it and track.
 
 | Layer     | Choice                                        |
 | --------- | --------------------------------------------- |
-| Framework | Next.js 14 (App Router)                       |
+| Framework | Next.js 16 (App Router)                       |
+| UI        | React 19                                      |
 | Language  | TypeScript (strict)                           |
 | Styling   | Tailwind CSS 3                                |
 | Database  | SQLite via `better-sqlite3` (synchronous)     |
@@ -59,6 +60,13 @@ npm run start     # serve the production build
 > **Note:** `better-sqlite3` is a native module. If `npm install` reports its
 > install script was blocked, run `npm approve-scripts better-sqlite3` (already
 > recorded in `package.json` under `allowScripts`).
+>
+> **`sharp`:** Next 16 lists `sharp` as an optional image-optimization
+> dependency; its install script is left unapproved because the app doesn't use
+> `next/image`. If you add `next/image`, run `npm approve-scripts sharp`.
+>
+> **postcss** is pinned via `overrides` to `^8.5.19` so Next's nested copy stays
+> on a patched version (see the 2026-07-18 dependency-upgrade decision log).
 
 ## Folder structure
 

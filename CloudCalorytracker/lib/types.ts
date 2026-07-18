@@ -26,7 +26,8 @@ export interface LogEntry {
   id: number;
   foodName: string;
   serving: string;
-  calories: number;
+  quantity: number; // number of servings, e.g. 2 or 1.5
+  calories: number; // eaten amount = per-serving × quantity
   protein: number;
   carbs: number;
   fat: number;

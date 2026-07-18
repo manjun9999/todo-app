@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import type { Food } from '@/lib/types';
+import QuantityStepper from './QuantityStepper';
 
 export default function FoodCard({
   food,
@@ -8,32 +10,53 @@ export default function FoodCard({
   disabled,
 }: {
   food: Food;
-  onAdd: (food: Food) => void;
+  onAdd: (food: Food, quantity: number) => void;
   disabled?: boolean;
 }) {
+  const [qty, setQty] = useState(1);
+  const scaledCalories = Math.round(food.calories * qty);
+
+  function handleAdd() {
+    onAdd(food, qty);
+    setQty(1); // reset for the next add
+  }
+
   return (
-    <button
-      type="button"
-      onClick={() => onAdd(food)}
-      disabled={disabled}
-      className="group flex flex-col items-start gap-1 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"
-      aria-label={`Add ${food.name} to log`}
-    >
-      <div className="flex w-full items-center justify-between">
+    <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:border-emerald-400 hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
+      <div className="flex items-center justify-between">
         <span className="text-2xl" aria-hidden>
           {food.emoji}
         </span>
-        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-sm font-semibold text-emerald-700 opacity-0 transition group-hover:opacity-100 dark:bg-emerald-900/50 dark:text-emerald-300">
-          + Add
+        <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+          {scaledCalories} kcal
         </span>
       </div>
-      <span className="mt-1 font-medium leading-tight text-slate-900 dark:text-slate-100">
-        {food.name}
-      </span>
-      <span className="text-xs text-slate-500 dark:text-slate-400">{food.serving}</span>
-      <span className="mt-1 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-        {food.calories} kcal
-      </span>
-    </button>
+      <div>
+        <p className="font-medium leading-tight text-slate-900 dark:text-slate-100">
+          {food.name}
+        </p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">{food.serving}</p>
+      </div>
+      <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+        <QuantityStepper
+          value={qty}
+          onChange={setQty}
+          ariaLabel={`Servings of ${food.name}`}
+        />
+        <button
+          type="button"
+          onClick={handleAdd}
+          disabled={disabled}
+          aria-label={`Add ${formatServings(qty)} ${food.name} to log`}
+          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          + Add
+        </button>
+      </div>
+    </div>
   );
+}
+
+function formatServings(qty: number): string {
+  return qty === 1 ? '1 serving' : `${qty} servings`;
 }

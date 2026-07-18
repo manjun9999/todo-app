@@ -1,6 +1,7 @@
 'use client';
 
 import type { LogEntry } from '@/lib/types';
+import QuantityStepper, { formatQty } from './QuantityStepper';
 
 function formatTime(iso: string): string {
   const d = new Date(iso);
@@ -10,9 +11,11 @@ function formatTime(iso: string): string {
 export default function DailyLog({
   entries,
   onRemove,
+  onQuantityChange,
 }: {
   entries: LogEntry[];
   onRemove: (id: number) => void;
+  onQuantityChange: (id: number, quantity: number) => void;
 }) {
   if (entries.length === 0) {
     return (
@@ -27,18 +30,30 @@ export default function DailyLog({
       {entries.map((entry) => (
         <li
           key={entry.id}
-          className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900"
+          className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900"
         >
           <div className="min-w-0">
             <p className="truncate font-medium text-slate-900 dark:text-slate-100">
               {entry.foodName}
+              {entry.quantity !== 1 && (
+                <span className="ml-1.5 text-sm font-normal text-emerald-600 dark:text-emerald-400">
+                  ×{formatQty(entry.quantity)}
+                </span>
+              )}
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {entry.serving ? `${entry.serving} · ` : ''}
               {formatTime(entry.loggedAt)} · P {entry.protein} / C {entry.carbs} / F {entry.fat}
             </p>
+            <div className="mt-2">
+              <QuantityStepper
+                value={entry.quantity}
+                onChange={(q) => onQuantityChange(entry.id, q)}
+                ariaLabel={`Servings of ${entry.foodName}`}
+              />
+            </div>
           </div>
-          <div className="flex shrink-0 items-center gap-3 pl-3">
+          <div className="flex shrink-0 flex-col items-end gap-2 pl-2">
             <span className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
               {entry.calories} kcal
             </span>

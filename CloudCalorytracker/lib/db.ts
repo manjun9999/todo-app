@@ -34,7 +34,28 @@ function initDb(): Database.Database {
       value TEXT NOT NULL
     );
   `);
+
+  // Lightweight migrations: add columns that older databases won't have.
+  // calories/protein/carbs/fat store the PER-SERVING (base) values; the eaten
+  // amount is base * quantity, computed on read. Existing rows default to 1.
+  ensureColumn(db, 'log_entries', 'quantity', 'quantity REAL NOT NULL DEFAULT 1');
+
   return db;
+}
+
+/** Add a column if the table doesn't already have it (idempotent migration). */
+function ensureColumn(
+  db: Database.Database,
+  table: string,
+  column: string,
+  ddl: string
+): void {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as {
+    name: string;
+  }[];
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  }
 }
 
 const db = global.__trackerDb ?? initDb();
@@ -44,22 +65,28 @@ interface Row {
   id: number;
   food_name: string;
   serving: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
+  calories: number; // per serving (base)
+  protein: number; // per serving (base)
+  carbs: number; // per serving (base)
+  fat: number; // per serving (base)
+  quantity: number;
   logged_at: string;
 }
 
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+// Scale the stored per-serving values by quantity to get the eaten amount.
 function rowToEntry(row: Row): LogEntry {
+  const q = row.quantity;
   return {
     id: row.id,
     foodName: row.food_name,
     serving: row.serving,
-    calories: row.calories,
-    protein: row.protein,
-    carbs: row.carbs,
-    fat: row.fat,
+    quantity: q,
+    calories: Math.round(row.calories * q),
+    protein: round1(row.protein * q),
+    carbs: round1(row.carbs * q),
+    fat: round1(row.fat * q),
     loggedAt: row.logged_at,
   };
 }
@@ -123,25 +150,49 @@ export function getTodayLog(): LogResponse {
   return { entries, totals: computeTotals(entries), goal: getGoal() };
 }
 
+export const MIN_QTY = 0.25;
+export const MAX_QTY = 100;
+
+/** Clamp a quantity to a sane range, rounded to 2 decimals. */
+export function clampQty(q: number): number {
+  const clamped = Math.min(MAX_QTY, Math.max(MIN_QTY, q));
+  return Math.round(clamped * 100) / 100;
+}
+
 export interface NewEntry {
   foodName: string;
   serving: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
+  calories: number; // per serving (base)
+  protein: number; // per serving (base)
+  carbs: number; // per serving (base)
+  fat: number; // per serving (base)
+  quantity: number;
 }
 
-/** Insert a new log entry and return it. */
+/** Insert a new log entry (storing per-serving values + quantity). */
 export function addEntry(entry: NewEntry): LogEntry {
   const loggedAt = new Date().toISOString();
+  const quantity = clampQty(entry.quantity);
   const result = db
     .prepare(
-      `INSERT INTO log_entries (food_name, serving, calories, protein, carbs, fat, logged_at)
-       VALUES (@foodName, @serving, @calories, @protein, @carbs, @fat, @loggedAt)`
+      `INSERT INTO log_entries (food_name, serving, calories, protein, carbs, fat, quantity, logged_at)
+       VALUES (@foodName, @serving, @calories, @protein, @carbs, @fat, @quantity, @loggedAt)`
     )
-    .run({ ...entry, loggedAt });
-  return { id: Number(result.lastInsertRowid), ...entry, loggedAt };
+    .run({ ...entry, quantity, loggedAt });
+  const row = db
+    .prepare(`SELECT * FROM log_entries WHERE id = ?`)
+    .get(Number(result.lastInsertRowid)) as Row;
+  return rowToEntry(row);
+}
+
+/** Update an entry's quantity. Returns the updated (scaled) entry, or null. */
+export function updateQuantity(id: number, quantity: number): LogEntry | null {
+  const result = db
+    .prepare(`UPDATE log_entries SET quantity = ? WHERE id = ?`)
+    .run(clampQty(quantity), id);
+  if (result.changes === 0) return null;
+  const row = db.prepare(`SELECT * FROM log_entries WHERE id = ?`).get(id) as Row;
+  return rowToEntry(row);
 }
 
 /** Delete an entry by id. Returns true if a row was removed. */

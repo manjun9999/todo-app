@@ -39,7 +39,7 @@ export default function Home() {
     );
   }, [query]);
 
-  async function addFood(food: Food) {
+  async function addFood(food: Food, quantity: number) {
     setBusyId(food.id);
     try {
       const res = await fetch('/api/log', {
@@ -52,6 +52,7 @@ export default function Home() {
           protein: food.protein,
           carbs: food.carbs,
           fat: food.fat,
+          quantity,
         }),
       });
       if (!res.ok) throw new Error('add failed');
@@ -78,6 +79,44 @@ export default function Home() {
       if (!res.ok) throw new Error('goal update failed');
       const { goal: saved }: { goal: number } = await res.json();
       setLog((cur) => ({ ...cur, goal: saved })); // server clamps to valid range
+    } catch {
+      setLog(prev); // roll back on failure
+    }
+  }
+
+  async function changeQuantity(id: number, quantity: number) {
+    // Optimistically bump the entry's quantity + scaled macros, then reconcile.
+    const prev = log;
+    const target = prev.entries.find((e) => e.id === id);
+    if (target) {
+      const factor = quantity / target.quantity;
+      const r1 = (n: number) => Math.round(n * 10) / 10;
+      setLog((cur) => ({
+        ...cur,
+        entries: cur.entries.map((e) =>
+          e.id === id
+            ? {
+                ...e,
+                quantity,
+                calories: Math.round(e.calories * factor),
+                protein: r1(e.protein * factor),
+                carbs: r1(e.carbs * factor),
+                fat: r1(e.fat * factor),
+              }
+            : e
+        ),
+      }));
+    }
+    try {
+      const res = await fetch(`/api/log/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity }),
+      });
+      if (!res.ok) throw new Error('quantity update failed');
+      // Re-fetch for authoritative totals (server rounds from base values).
+      const data: LogResponse = await fetch('/api/log').then((r) => r.json());
+      setLog(data);
     } catch {
       setLog(prev); // roll back on failure
     }
@@ -137,7 +176,11 @@ export default function Home() {
         {loading ? (
           <p className="py-6 text-center text-slate-500 dark:text-slate-400">Loading…</p>
         ) : (
-          <DailyLog entries={log.entries} onRemove={removeEntry} />
+          <DailyLog
+            entries={log.entries}
+            onRemove={removeEntry}
+            onQuantityChange={changeQuantity}
+          />
         )}
       </section>
 

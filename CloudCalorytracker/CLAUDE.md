@@ -10,8 +10,11 @@ totals at the top. No login, no accounts — just open it and track.
   eggs, banana, …) by name or category.
 - **Tap to add** — one click logs a food with its calories, protein, carbs,
   fat, and serving size.
+- **Adjustable quantities** — pick how many servings before adding (e.g. 2 eggs,
+  1.5 cups rice), and adjust the quantity on any logged entry afterward. Macros
+  and totals scale automatically.
 - **Daily log** lists what you've eaten today (newest first) with a per-item
-  remove button.
+  quantity stepper and remove button.
 - **Summary header** shows today's total calories and macro breakdown, updating
   as you add or remove foods.
 - **Daily goal** — set a calorie target; the header shows a progress bar,
@@ -64,8 +67,9 @@ CloudCalorytracker/
 ├── components/
 │   ├── SummaryHeader.tsx     Calorie total, macro tiles, goal + progress bar
 │   ├── SearchBar.tsx         Food search input
-│   ├── FoodCard.tsx          Tappable food card
-│   └── DailyLog.tsx          Log list + remove buttons
+│   ├── FoodCard.tsx          Food card with quantity stepper + Add button
+│   ├── DailyLog.tsx          Log list with quantity steppers + remove buttons
+│   └── QuantityStepper.tsx   Reusable −/+ quantity control
 ├── lib/
 │   ├── types.ts              Shared domain types (Food, LogEntry, Totals)
 │   ├── foods.ts              Static catalog of 25 common foods
@@ -80,8 +84,10 @@ CloudCalorytracker/
 - **Food** (static, `lib/foods.ts`): `id, name, emoji, category, serving,
   calories, protein, carbs, fat` — nutrition per one serving.
 - **LogEntry** (SQLite table `log_entries`): a snapshot of a food at the moment
-  it was logged, plus `id` and `loggedAt`. Snapshotting means editing the
-  catalog later never rewrites past log history.
+  it was logged, plus `id`, `quantity`, and `loggedAt`. Snapshotting means
+  editing the catalog later never rewrites past log history. The macro columns
+  store **per-serving** values; the eaten amount is `value × quantity`, computed
+  on read — so quantity can be edited later without losing precision.
 - **Settings** (SQLite table `settings`): a small key/value store; currently
   holds `daily_calorie_goal` (default 2000, clamped to 500–10000).
 
@@ -90,7 +96,8 @@ CloudCalorytracker/
 | Method | Route            | Purpose                                       |
 | ------ | ---------------- | --------------------------------------------- |
 | GET    | `/api/log`       | Today's entries + computed totals + goal      |
-| POST   | `/api/log`       | Add an entry `{ foodName, serving, ... }`     |
+| POST   | `/api/log`       | Add an entry `{ foodName, serving, quantity, ... }` |
+| PATCH  | `/api/log/[id]`  | Change an entry's quantity `{ quantity }`     |
 | DELETE | `/api/log/[id]`  | Remove an entry by id                         |
 | GET    | `/api/goal`      | Current daily calorie goal                    |
 | PUT    | `/api/goal`      | Set the daily calorie goal `{ goal }`         |
@@ -101,7 +108,6 @@ Totals are always computed server-side so the client can't drift out of sync.
 ## What's coming next
 
 - **Custom foods** — add foods not in the catalog, with your own macros.
-- **Adjustable servings / quantities** — log "2 eggs" or "1.5 cups rice".
 - **History view** — browse and compare previous days, not just today.
 - **Edit entries** — currently entries can only be added or removed.
 - **Tests** — unit tests for `lib/db.ts` totals math and API route validation.

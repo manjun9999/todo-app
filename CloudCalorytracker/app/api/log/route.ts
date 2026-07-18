@@ -25,6 +25,7 @@ export async function POST(request: Request) {
   }
 
   const num = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v : 0);
+  const rawQty = num(b.quantity);
   const entry = addEntry({
     foodName,
     serving,
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
     protein: num(b.protein),
     carbs: num(b.carbs),
     fat: num(b.fat),
+    quantity: rawQty > 0 ? rawQty : 1, // default to one serving
   });
 
   return NextResponse.json(entry, { status: 201 });

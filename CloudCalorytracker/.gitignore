@@ -19,6 +19,17 @@ dist/
 build/
 *.egg-info/
 
+# Next.js
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# Local database
+data/
+*.db
+*.db-shm
+*.db-wal
+
 # Logs
 *.log
 logs/

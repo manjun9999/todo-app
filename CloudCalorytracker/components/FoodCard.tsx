@@ -1,16 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import type { Food } from '@/lib/types';
+import type { CatalogFood } from '@/lib/types';
 import QuantityStepper from './QuantityStepper';
 
 export default function FoodCard({
   food,
   onAdd,
+  onDelete,
   disabled,
 }: {
-  food: Food;
-  onAdd: (food: Food, quantity: number) => void;
+  food: CatalogFood;
+  onAdd: (food: CatalogFood, quantity: number) => void;
+  onDelete?: (food: CatalogFood) => void;
   disabled?: boolean;
 }) {
   const [qty, setQty] = useState(1);
@@ -37,6 +39,23 @@ export default function FoodCard({
         </p>
         <p className="text-xs text-slate-500 dark:text-slate-400">{food.serving}</p>
       </div>
+      {food.custom && (
+        <div className="flex items-center justify-between">
+          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">
+            Custom
+          </span>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(food)}
+              aria-label={`Delete custom food ${food.name}`}
+              className="text-xs text-slate-400 transition hover:text-red-600"
+            >
+              Delete
+            </button>
+          )}
+        </div>
+      )}
       <div className="mt-auto flex items-center justify-between gap-2 pt-1">
         <QuantityStepper
           value={qty}

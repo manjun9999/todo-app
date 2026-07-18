@@ -13,6 +13,9 @@ totals at the top. No login, no accounts — just open it and track.
 - **Adjustable quantities** — pick how many servings before adding (e.g. 2 eggs,
   1.5 cups rice), and adjust the quantity on any logged entry afterward. Macros
   and totals scale automatically.
+- **Custom foods** — define your own food (name, serving, macros); it's saved to
+  the database and appears in the catalog/search alongside built-ins, marked
+  "Custom". Deleting a custom food leaves already-logged entries intact.
 - **Daily log** lists what you've eaten today (newest first) with a per-item
   quantity stepper and remove button.
 - **Summary header** shows today's total calories and macro breakdown, updating
@@ -62,16 +65,20 @@ CloudCalorytracker/
 │   └── api/
 │       ├── log/
 │       │   ├── route.ts      GET (today's log + totals + goal), POST (add entry)
-│       │   └── [id]/route.ts DELETE (remove entry by id)
-│       └── goal/route.ts     GET / PUT the daily calorie goal
+│       │   └── [id]/route.ts PATCH (change quantity), DELETE (remove entry)
+│       ├── goal/route.ts     GET / PUT the daily calorie goal
+│       └── foods/
+│           ├── route.ts      GET (list custom foods), POST (create)
+│           └── [id]/route.ts DELETE (remove a custom food)
 ├── components/
 │   ├── SummaryHeader.tsx     Calorie total, macro tiles, goal + progress bar
 │   ├── SearchBar.tsx         Food search input
+│   ├── AddFoodForm.tsx       Collapsible form to create a custom food
 │   ├── FoodCard.tsx          Food card with quantity stepper + Add button
 │   ├── DailyLog.tsx          Log list with quantity steppers + remove buttons
 │   └── QuantityStepper.tsx   Reusable −/+ quantity control
 ├── lib/
-│   ├── types.ts              Shared domain types (Food, LogEntry, Totals)
+│   ├── types.ts              Shared domain types (Food, CatalogFood, LogEntry)
 │   ├── foods.ts              Static catalog of 25 common foods
 │   └── db.ts                 SQLite connection, schema, queries
 ├── data/                     SQLite database file (gitignored, auto-created)
@@ -82,7 +89,9 @@ CloudCalorytracker/
 ## Data model
 
 - **Food** (static, `lib/foods.ts`): `id, name, emoji, category, serving,
-  calories, protein, carbs, fat` — nutrition per one serving.
+  calories, protein, carbs, fat` — nutrition per one serving. **Custom foods**
+  (SQLite table `custom_foods`) share this shape and are surfaced as
+  `CatalogFood` (`custom: true`, `dbId`) merged into the same catalog.
 - **LogEntry** (SQLite table `log_entries`): a snapshot of a food at the moment
   it was logged, plus `id`, `quantity`, and `loggedAt`. Snapshotting means
   editing the catalog later never rewrites past log history. The macro columns
@@ -101,13 +110,15 @@ CloudCalorytracker/
 | DELETE | `/api/log/[id]`  | Remove an entry by id                         |
 | GET    | `/api/goal`      | Current daily calorie goal                    |
 | PUT    | `/api/goal`      | Set the daily calorie goal `{ goal }`         |
+| GET    | `/api/foods`     | List user-defined custom foods                |
+| POST   | `/api/foods`     | Create a custom food `{ name, serving, ... }` |
+| DELETE | `/api/foods/[id]`| Delete a custom food (keeps past log entries) |
 
 Totals are always computed server-side so the client can't drift out of sync.
 `GET /api/log` also returns the goal, so the UI gets everything in one fetch.
 
 ## What's coming next
 
-- **Custom foods** — add foods not in the catalog, with your own macros.
 - **History view** — browse and compare previous days, not just today.
 - **Edit entries** — currently entries can only be added or removed.
 - **Tests** — unit tests for `lib/db.ts` totals math and API route validation.

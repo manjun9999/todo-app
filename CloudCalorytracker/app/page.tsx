@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { FOODS } from '@/lib/foods';
-import type { Food, LogResponse } from '@/lib/types';
+import type { CatalogFood, LogResponse, NewCustomFood } from '@/lib/types';
 import SummaryHeader from '@/components/SummaryHeader';
 import SearchBar from '@/components/SearchBar';
 import FoodCard from '@/components/FoodCard';
+import AddFoodForm from '@/components/AddFoodForm';
 import DailyLog from '@/components/DailyLog';
 
 const EMPTY: LogResponse = {
@@ -16,30 +17,70 @@ const EMPTY: LogResponse = {
 
 export default function Home() {
   const [log, setLog] = useState<LogResponse>(EMPTY);
+  const [customFoods, setCustomFoods] = useState<CatalogFood[]>([]);
   const [query, setQuery] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load today's log on mount.
+  // Load today's log and any custom foods on mount.
   useEffect(() => {
-    fetch('/api/log')
-      .then((r) => r.json())
-      .then((data: LogResponse) => setLog(data))
+    Promise.all([
+      fetch('/api/log').then((r) => r.json()),
+      fetch('/api/foods').then((r) => r.json()),
+    ])
+      .then(([logData, foods]: [LogResponse, CatalogFood[]]) => {
+        setLog(logData);
+        setCustomFoods(Array.isArray(foods) ? foods : []);
+      })
       .catch(() => setLog(EMPTY))
       .finally(() => setLoading(false));
   }, []);
 
+  // Custom foods come first so they're easy to find.
+  const allFoods = useMemo<CatalogFood[]>(
+    () => [...customFoods, ...FOODS],
+    [customFoods]
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return FOODS;
-    return FOODS.filter(
+    if (!q) return allFoods;
+    return allFoods.filter(
       (f) =>
         f.name.toLowerCase().includes(q) ||
         f.category.toLowerCase().includes(q)
     );
-  }, [query]);
+  }, [query, allFoods]);
 
-  async function addFood(food: Food, quantity: number) {
+  async function createCustomFood(input: NewCustomFood): Promise<boolean> {
+    try {
+      const res = await fetch('/api/foods', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) throw new Error('create failed');
+      const food: CatalogFood = await res.json();
+      setCustomFoods((prev) => [food, ...prev]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function deleteCustomFood(food: CatalogFood) {
+    if (food.dbId === undefined) return;
+    const prev = customFoods;
+    setCustomFoods((cur) => cur.filter((f) => f.dbId !== food.dbId));
+    try {
+      const res = await fetch(`/api/foods/${food.dbId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('delete failed');
+    } catch {
+      setCustomFoods(prev); // roll back on failure
+    }
+  }
+
+  async function addFood(food: CatalogFood, quantity: number) {
     setBusyId(food.id);
     try {
       const res = await fetch('/api/log', {
@@ -149,12 +190,16 @@ export default function Home() {
 
       <section className="mt-8">
         <SearchBar value={query} onChange={setQuery} />
+        <div className="mt-4">
+          <AddFoodForm onCreate={createCustomFood} />
+        </div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
           {filtered.map((food) => (
             <FoodCard
               key={food.id}
               food={food}
               onAdd={addFood}
+              onDelete={food.custom ? deleteCustomFood : undefined}
               disabled={busyId === food.id}
             />
           ))}

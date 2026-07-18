@@ -1,7 +1,13 @@
 import Database from 'better-sqlite3';
 import path from 'node:path';
 import fs from 'node:fs';
-import type { LogEntry, Totals, LogResponse } from './types';
+import type {
+  LogEntry,
+  Totals,
+  LogResponse,
+  CatalogFood,
+  NewCustomFood,
+} from './types';
 
 // Store the SQLite file under ./data so it's easy to find and .gitignore.
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -32,6 +38,18 @@ function initDb(): Database.Database {
     CREATE TABLE IF NOT EXISTS settings (
       key   TEXT PRIMARY KEY,
       value TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS custom_foods (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      name       TEXT NOT NULL,
+      emoji      TEXT NOT NULL DEFAULT '🍽️',
+      serving    TEXT NOT NULL DEFAULT '',
+      calories   REAL NOT NULL,
+      protein    REAL NOT NULL,
+      carbs      REAL NOT NULL,
+      fat        REAL NOT NULL,
+      created_at TEXT NOT NULL
     );
   `);
 
@@ -198,5 +216,66 @@ export function updateQuantity(id: number, quantity: number): LogEntry | null {
 /** Delete an entry by id. Returns true if a row was removed. */
 export function deleteEntry(id: number): boolean {
   const result = db.prepare(`DELETE FROM log_entries WHERE id = ?`).run(id);
+  return result.changes > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Custom foods
+// ---------------------------------------------------------------------------
+
+interface CustomFoodRow {
+  id: number;
+  name: string;
+  emoji: string;
+  serving: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  created_at: string;
+}
+
+function customRowToFood(row: CustomFoodRow): CatalogFood {
+  return {
+    id: `custom-${row.id}`,
+    dbId: row.id,
+    custom: true,
+    name: row.name,
+    emoji: row.emoji,
+    category: 'Custom',
+    serving: row.serving,
+    calories: row.calories,
+    protein: row.protein,
+    carbs: row.carbs,
+    fat: row.fat,
+  };
+}
+
+/** All user-defined foods, newest first. */
+export function getCustomFoods(): CatalogFood[] {
+  const rows = db
+    .prepare(`SELECT * FROM custom_foods ORDER BY id DESC`)
+    .all() as CustomFoodRow[];
+  return rows.map(customRowToFood);
+}
+
+/** Create a custom food and return it in catalog shape. */
+export function addCustomFood(input: NewCustomFood): CatalogFood {
+  const createdAt = new Date().toISOString();
+  const result = db
+    .prepare(
+      `INSERT INTO custom_foods (name, emoji, serving, calories, protein, carbs, fat, created_at)
+       VALUES (@name, @emoji, @serving, @calories, @protein, @carbs, @fat, @createdAt)`
+    )
+    .run({ ...input, createdAt });
+  const row = db
+    .prepare(`SELECT * FROM custom_foods WHERE id = ?`)
+    .get(Number(result.lastInsertRowid)) as CustomFoodRow;
+  return customRowToFood(row);
+}
+
+/** Delete a custom food. Past log entries that referenced it are unaffected. */
+export function deleteCustomFood(id: number): boolean {
+  const result = db.prepare(`DELETE FROM custom_foods WHERE id = ?`).run(id);
   return result.changes > 0;
 }

@@ -19,7 +19,28 @@ export type FoodCategory =
   | 'Fruit'
   | 'Vegetables'
   | 'Dairy'
-  | 'Snacks';
+  | 'Snacks'
+  | 'Custom';
+
+/**
+ * A food shown in the catalog — either a built-in Food or a user-defined one.
+ * Custom foods carry `custom: true` and their database id in `dbId`.
+ */
+export interface CatalogFood extends Food {
+  custom?: boolean;
+  dbId?: number;
+}
+
+/** Fields a user provides when creating a custom food. */
+export interface NewCustomFood {
+  name: string;
+  emoji: string;
+  serving: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
 
 /** A single "I ate this" record, persisted in the database. */
 export interface LogEntry {
